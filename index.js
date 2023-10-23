@@ -75,7 +75,14 @@ client.on('messageCreate', async (message) => {
         return;
     }
 
-    message.reply(response.choices[0].message.content);
+    const responseMessage = response.choices[0].message.content;
+    const chunkSizeLimit = 2000;
+
+    for (let i = 0; i < responseMessage.length; i += chunkSizeLimit) {
+        const chunk = responseMessage.substring(i, i + chunkSizeLimit);
+
+        await message.reply(chunk);
+    }
 });
 
 client.login(process.env.TOKEN);
