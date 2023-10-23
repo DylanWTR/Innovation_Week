@@ -22,21 +22,58 @@ client.on('messageCreate', async (message) => {
     if (message.content.startsWith(IGNORE_PREFIX)) return;
     if (!CHANNELS.includes(message.channelId) && !message.mentions.users.has(client.user.id)) return;
 
+    await message.channel.sendTyping();
+
+    const sendTypingIntervals = setInterval(() => {
+        message.channel.sendTyping();
+    }, 5000);
+
+    let conversation = [];
+
+    conversation.push({
+        role: 'system',
+        content: 'Chat GPT is a friendly chatbot.'
+    });
+
+    let prevMessages = await message.channel.messages.fetch({ limit: 10 });
+    prevMessages.reverse();
+
+    prevMessages.forEach((msg) => {
+        if (msg.author.bot && msg.author.id !== client.user.id) return;
+        if (message.content.startsWith(IGNORE_PREFIX)) return;
+
+        const username = msg.author.username.replace(/\s+/g, '_').replace(/[^\w\s]/gi, '');
+
+        if (msg.author.id == client.user.id) {
+            conversation.push({
+                role: 'assistant',
+                name: username,
+                content: msg.content,
+            })
+
+            return;
+        }
+
+        conversation.push({
+            role: 'user',
+            name: username,
+            content: msg.content,
+        })
+    })
+
     const response = await openai.chat.completions
         .create({
             model: 'gpt-3.5-turbo',
-            messages: [
-                {
-                    // name:
-                    role: 'system',
-                    content: 'Chat GPT is a friendly chatbot.'
-                },
-                {
-                    role: 'user',
-                    content: message.content,
-                }
-            ]
-        }).catch((error) => console.error('OpenAI Error:\n', error));
+            messages: conversation,
+        })
+        .catch((error) => console.error('OpenAI Error:\n', error));
+
+    clearInterval(sendTypingIntervals);
+
+    if (!response) {
+        message.reply("I'm having trouble with the OpenAI API. Try again in a moment.");
+        return;
+    }
 
     message.reply(response.choices[0].message.content);
 });
