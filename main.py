@@ -1,6 +1,9 @@
 import discord
 from discord.ext import commands
 import asyncio
+from decouple import config
+
+BOT_TOKEN = config('BOT_TOKEN')
 
 intents = discord.Intents.all()
 intents.reactions = True
@@ -36,4 +39,4 @@ async def on_reaction_add(reaction, user):
         else:
             print("Rôle 'aventure' introuvable.")
 
-bot.run('MTE2NjM1MzI5Mjg0MzAyODUwMA.G0cwX7.Ai7nMgvm9xXDIjhCJ3Gmw35iyUkGC0VGAArS5Y')
+bot.run(BOT_TOKEN)
