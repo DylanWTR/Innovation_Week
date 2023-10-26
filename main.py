@@ -51,54 +51,9 @@ async def on_ready():
     print(f'Logged in as {bot.user.name} ({bot.user.id})')
     print('------')
 
-@bot.command(name='startgame', aliases=['$startgame'])
-async def start_game(ctx):
-    if ctx.channel.name == "aventure":
-        await ctx.send("Le jeu a commencé avec une phase de nuit !")
-        await night_phase(ctx)
-
-async def night_phase(ctx):
-    fake_players = ["Joueur1", "Joueur2", "Joueur3", "Joueur4", "Joueur5", "Joueur6", "Joueur7", "Joueur8", "Joueur9", "Joueur10"]
-    for player in fake_players:
-        role = random.choice(available_roles)
-
-        if assigned_roles_counter[role] >= available_roles.count(role):
-            available_roles.remove(role)
-            if not available_roles:
-                await ctx.send("Tous les rôles ont été distribués.")
-                break
-
-        user_roles[player] = role
-        assigned_roles_counter[role] += 1
-        await send_role_and_image(ctx, player, role)
-        await asyncio.sleep(1)
-
-    await ctx.send("---------------------------------------------------------")
-    await ctx.send("Phase de nuit : Les Criminels éliminent un joueur.")
-    eliminated_player = random.choice(fake_players)
-    await ctx.send(f"Les Criminels ont éliminé {eliminated_player}.")
-    fake_players.remove(eliminated_player)
-    del user_roles[eliminated_player]
-    await ctx.send(f"Joueurs restants : {', '.join(fake_players)}")
-    await asyncio.sleep(1)
-
-    await asyncio.sleep(1)
-    await day_phase(ctx)
-
-async def day_phase(ctx):
-    await ctx.send("---------------------------------------------------------")
-    await ctx.send("Phase de jour : Discussion, vote, et élimination.")
-    await asyncio.sleep(1)
-    await asyncio.sleep(1)
-
-    if "Criminel" not in user_roles.values():
-        await ctx.send("Les Villageois gagnent ! Tous les Criminels ont été éliminés.")
-    elif list(user_roles.values()).count("Criminel") >= len(user_roles) - list(user_roles.values()).count("Criminel"):
-        await ctx.send("Les Criminels gagnent ! Ils ont pris le contrôle du village.")
-
 @bot.command(name='start')
 async def game(ctx):
-    message = await ctx.send("Réagissez à l'emoji pour commencer le jeu.")
+    message = await ctx.send("La partie de Loup Garou va commencer dans **5 secondes**, réagissez à l'emoji pour être dans la partie!")
     await message.add_reaction('🚀')
 
 @bot.event
@@ -106,8 +61,8 @@ async def on_reaction_add(reaction, user):
     channel_name = "aventure"
     if user == bot.user:
         return
-    if reaction.message.content == "Réagissez à l'emoji pour commencer le jeu.":
-        await asyncio.sleep(10)
+    if reaction.message.content == "La partie de Loup Garou va commencer dans **5 secondes**, réagissez à l'emoji pour être dans la partie!":
+        await asyncio.sleep(5)
         role = discord.utils.get(reaction.message.guild.roles, name='aventure')
         if role:
             await user.add_roles(role)
@@ -117,21 +72,58 @@ async def on_reaction_add(reaction, user):
                 role: discord.PermissionOverwrite(read_messages=True)
             }
             channel = await reaction.message.guild.create_text_channel(channel_name, overwrites=overwrites)
-            await channel.send(f"{user.mention}, Bienvenue dans l'aventure")
 
             if len(available_roles) > 0:
                 assigned_role_name = random.choice(available_roles)
                 available_roles.remove(assigned_role_name)
                 user_roles[user.id] = assigned_role_name
 
-                await send_role_and_image(user, user.display_name, assigned_role_name)
+                await send_role_and_image(user, assigned_role_name)
+
+                await start_game(channel)
+
+async def start_game(channel):
+
+    await channel.send("**BIENVENUE A TOUS** dans le village de Neopolis. Ce village a récemment été perturbé par la présence de **3 Criminels** qui rôdent la nuit, terrorisant la population. Heureusement, ce village a aussi ses protecteurs, dont **Le Détective**, **Le Garde du corps**, **La Pharmacienne**, **L'Informateur**, **Le Traître**, **L'Avocat**, et **Le Chasseur urbain**. Aujourd'hui, le village se réunit pour tenter de démasquer les Criminels et protéger leurs habitants.\n")
+    await asyncio.sleep(2)
+    await channel.send("**----------------------------------**\nLes rôles ont été soigneusement mélangés et attribués au hasard. Qui parmi vous jouera le rôle de protecteur, de détective, de criminel ou de traître ? C'est le moment de le découvrir.")
+    await asyncio.sleep(2)
+    await channel.send("**----------------------------------**\n**Phase de nuit :**\n\nLe soleil se couche sur le village, et la lune prend sa place. Tous les villageois ferment leurs yeux, sauf les Criminels, les Détectives et les Gardes du corps.")
+    await asyncio.sleep(2)
+    await channel.send("C'est le moment où les Criminels se concertent silencieusement pour choisir leur proie...")
+    await asyncio.sleep(2)
+
+    fake_players = ["Alice", "Bob", "Carol", "David", "Emily", "Frank", "Grace", "Henry", "Isabella", "Jack"]
+
+    player_reactions = {}
+    voting_message = "C'est l'heure du vote des Criminels ! Choisissez votre cible en réagissant avec l'emoji correspondant.\nVous avez **10 secondes** !\n\n"
+
+    numbered_emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
+
+    for i, player in enumerate(fake_players):
+        if i < len(numbered_emojis):
+            emoji = numbered_emojis[i]
+            player_reactions[emoji] = player
+            voting_message += f"{emoji} {player}\n"
+
+    voting_message = await channel.send(voting_message)
+
+    for emoji in player_reactions.keys():
+        await voting_message.add_reaction(emoji)
+
+    await asyncio.sleep(10)
+    await channel.send("Les Criminels ont voté. Le joueur le plus voté est **David**.")
+    await channel.send("**David** était **L'informateur** !")
+    await asyncio.sleep(2)
+    await channel.send("**----------------------------------**\n**Phase de jour :**\n\nLe soleil se lève sur le village, révélant les horreurs de la nuit. Les villageois discutent de l'élimination de **David**, partageant leurs soupçons et leurs doutes.\n\n")
+
 
 @bot.command(name='end', aliases=['$end'])
 async def end_game(ctx):
     if ctx.channel.name == "aventure":
         await ctx.channel.delete()
 
-async def send_role_and_image(user, player, role):
+async def send_role_and_image(user, role):
     if role in role_images:
         image_url = role_images[role]
         async with aiohttp.ClientSession() as session:
@@ -140,13 +132,22 @@ async def send_role_and_image(user, player, role):
                     image_bytes = await resp.read()
                     file = discord.File(io.BytesIO(image_bytes), filename="role_image.png")
                     description = role_descriptions.get(role, "No description available.")
-                    await user.send(f"Votre rôle dans l'aventure est **{role}**.")
-                    await user.send(file=file)
-                    await user.send(description)
-                    await user.send("---------------------------------------------------------")
+                    await user.send(f"Votre rôle dans l'aventure est **{role}**.\n\n{description}", file=file)
+
                 else:
                     await user.send(f"Votre rôle dans l'aventure est **{role}**. (Image not found)")
     else:
         await user.send(f"Votre rôle dans l'aventure est **{role}**.")
 
 bot.run(BOT_TOKEN)
+
+
+        # "**-- INTRODUCTION DES PERSONNAGES --**\n\n"
+        # "**Les Criminels** : Ils choisissent une victime à éliminer chaque nuit. Leur objectif est de devenir majoritaires dans le village.\n\n"
+        # "**Le Détective** : Il enquête sur un joueur chaque nuit pour découvrir son vrai rôle. Son but est de démasquer les Criminels et protéger les citoyens.\n\n"
+        # "**Le Garde du corps** : Il peut protéger un joueur des Criminels chaque nuit. Son rôle est de sauver les citoyens des attaques nocturnes.\n\n"
+        # "**La Pharmacienne** : Elle possède deux médicaments - un pour sauver une victime et l'autre pour éliminer un joueur. Elle doit choisir judicieusement quand utiliser ses pouvoirs.\n\n"
+        # "**L'Informateur** : Il recueille des informations sur un groupe de 3 personnes pour voir s'il y a des Criminels parmi eux. Sa capacité peut aider à identifier les Criminels.\n\n"
+        # "**Le Traître** : Son objectif est d'être le dernier joueur en vie. Il peut trahir et éliminer un autre Criminel pour atteindre son but.\n\n"
+        # "**L'Avocat** : Il peut immuniser un joueur contre les votes. Son rôle est de manipuler les votes de jour pour protéger son équipe.\n\n"
+        # "**Le Chasseur Urbain** : S'il est éliminé par les citoyens, ceux qui ont des pouvoirs les perdent. Il survit à la première attaque des Criminels et peut être un atout précieux pour les citoyens.\n\n"
